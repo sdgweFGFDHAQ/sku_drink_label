@@ -1,18 +1,15 @@
 import warnings
 
-import argparse
-from icecream.icecream import ic
 import numpy as np
 import pandas as pd
-from pyhive import hive
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer, AutoModel
 import torch
 from torch import nn
 from torch import optim
 from torch.utils.data import TensorDataset, DataLoader
-from tensorboardX import SummaryWriter
 
 from models.proto_model import ProtoTypicalNet
 
@@ -22,9 +19,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 pretrian_bert_url = "IDEA-CCNL/Erlangshen-DeBERTa-v2-97M-Chinese"
 pretrian_bert_url0 = "IDEA-CCNL/Erlangshen-DeBERTa-v2-320M-Chinese"
-labeled_update_path = './data/is_7t1.csv'
-labeled_di_sku_path = './data/di_sku_log_drink_labels.csv'
-labeled_di_sku_path2 = './data/di_sku_log_chain_drink_labels_clean_dgl.csv'
+labeled_update_path = '/datasets/is_7t1.csv'
+labeled_di_sku_path = '/datasets/di_sku_log_drink_labels.csv'
+labeled_di_sku_path2 = '/datasets/di_sku_log_chain_drink_labels_clean_dgl.csv'
+prefix_path = "/home/DI/zhouzx/code/sku_drink_label"
 
 token_max_length = 12
 batch_size = 16
@@ -228,20 +226,20 @@ def train_and_test(support_dataset, test_dataset, proto_model, ratio, save_path)
 
 # bert模型
 def run_proto_bert():
-    features = ['name', 'storetype']
-    labels = ['植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风味饮料', '茶（类）饮料',
-              '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
+    features = ['id', 'name', 'storetype']
+    # labels = ['植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风味饮料', '茶（类）饮料',
+    #           '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
     labels = ['plant_clean', 'fruit_vegetable_clean', 'protein_clean', 'flavored_clean', 'tea_clean',
               'carbonated_clean', 'coffee_clean', 'water_clean', 'special_uses_clean']
-    columns = ['drink_labels']
+    columns = []
     columns.extend(features)
     columns.extend(labels)
 
-    labeled_df = pd.read_csv(labeled_di_sku_path2, usecols=columns)
+    labeled_df = pd.read_csv(prefix_path + labeled_di_sku_path2, usecols=columns)
     labeled_df = labeled_df[labeled_df['name'].notnull() & (labeled_df['name'] != '')]
     labeled_df = labeled_df[labeled_df['storetype'].notnull() & (labeled_df['storetype'] != '')]
 
-    # 采用最小包含算法采样
+    # 划分训练集、测试集
     sq_set, test_set = train_test_split(labeled_df, test_size=0.2)
     # sq_set = get_Support_Query(labeled_df, labels, k=2000)
     print('sq_set len:{}'.format(sq_set.shape[0]))
@@ -266,7 +264,7 @@ def run_proto_bert():
     ).to(device)
 
     # 训练 测试 分析
-    train_and_test(support_dataset, test_dataset, proto_model, ratio, './models/proto_model.pth')
+    train_and_test(support_dataset, test_dataset, proto_model, ratio, prefix_path + '/models/proto_model.pth')
     print("=================================")
 
 
@@ -276,11 +274,11 @@ def predict():
               '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
     labels = ['plant_clean', 'fruit_vegetable_clean', 'protein_clean', 'flavored_clean', 'tea_clean',
               'carbonated_clean', 'coffee_clean', 'water_clean', 'special_uses_clean']
-    columns = ['drink_labels']
+    columns = []
     columns.extend(features)
     columns.extend(labels)
 
-    labeled_df = pd.read_csv(labeled_di_sku_path2, usecols=columns)
+    labeled_df = pd.read_csv(prefix_path + labeled_di_sku_path2, usecols=columns)
     labeled_df = labeled_df[labeled_df['name'].notnull() & (labeled_df['name'] != '')]
     labeled_df = labeled_df[labeled_df['storetype'].notnull() & (labeled_df['storetype'] != '')]
 
@@ -297,17 +295,17 @@ def predict():
         hidden_dim=128,
         num_class=len(labels)
     ).to(device)
-    proto_model.load_state_dict(torch.load('./models/proto_model_new.pth'))
+    proto_model.load_state_dict(torch.load(prefix_path + '/models/proto_model.pth'))
 
     output_result, lable_result = predicting(test_dataset, proto_model)
     drink_df = pd.DataFrame(lable_result, columns=labels)
     drink_values = pd.DataFrame(output_result, columns=labels)
-    source_df = test_set[['name', 'storetype', 'drink_labels']].reset_index(drop=True)
+    source_df = test_set[['name', 'storetype']].reset_index(drop=True)
 
     predict_result = pd.concat([source_df, drink_values], axis=1)
 
     pd.options.display.float_format = '{:.6f}'.format
-    predict_result.to_csv('./data/sku_predict_result_new.csv', index=False)
+    predict_result.to_csv(prefix_path + '/datasets/sku_predict_result.csv', index=False)
     print("预测完成")
 
 

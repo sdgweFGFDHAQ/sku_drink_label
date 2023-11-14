@@ -27,11 +27,11 @@ def count_matching_number():
               "inner join standard_db.di_store_dedupe as dsd on sku.store_id = dsd.id"
 
         cursor.execute(sql)
-        di_sku_log_sql = cursor.fetchall()
-        di_sku_log_data = pd.DataFrame(di_sku_log_sql,
-                                       columns=["store_id", "sku_code", "brand_name", "series_name", "sku_name",
-                                                "category1_new", "category2_new", "category3_new", "name",
-                                                "predict_category", "drink_label"]).set_index("id")
+        di_sku_log = cursor.fetchall()
+        di_sku_log_data = pd.DataFrame(di_sku_log,
+                                       columns=["id", "name", "appcode", "channeltype_new", "category1_new", "state",
+                                                "city", "brand_name", "series_name", "sku_name",
+                                                "sku_code", "drink_label"]).set_index("id")
         di_sku_log_data.to_csv(prefix_path + source_dataset_path)
     except Exception as e:
         print("出错了！")

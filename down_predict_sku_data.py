@@ -82,8 +82,7 @@ def sku_data_pretreatment():
 
 
 if __name__ == '__main__':
-    # 处理数据集格式-停用
-    # sku_data_pretreatment()
-
     # 关联sku表，下载预测集
     count_matching_number()
+    # 处理数据集格式
+    sku_data_pretreatment()

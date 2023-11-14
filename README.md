@@ -1,29 +1,74 @@
 # 数据集的准备
-~~down_di_sku_labeling_data.py 查询待品类打标的数据~~  
-1. 代码合并到prototypical.py 查询待品类打标的数据  
-数据库：standard_db
+## 1. python脚本  
+/home/DI/zhouzx/code/sku_drink_label/down_drink_sku_data.py: 下载数据集，人工清洗后，用于模型的训练和测试
+```python
+# 下载数据集所需列
+columns = ["id", "name", "appcode", "channeltype_new", "category1_new", "state",
+           "city", "brand_name", "series_name", "sku_name",
+           "sku_code", "drink_label"]
+# 当前清洗后的30w数据集列为：
+col1 = ['id', 'name', 'storetype'] # storetype即category1_new
+col2 = ['plant_clean', 'fruit_vegetable_clean', 'protein_clean', 'flavored_clean', 'tea_clean',
+        'carbonated_clean', 'coffee_clean', 'water_clean', 'special_uses_clean']
+```
+/home/DI/zhouzx/code/sku_drink_label/down_predict_sku_data.py: 下载数据集，渠道源(appcode)为高德、腾讯、百度，用于预测打标  
+```python
+# 下载数据集所需列
+columns=["id", "name", "appcode", "category1_new", "state", "city",
+         "predict_category", "drink_label"]
+```
+## 2. 数据来源  
+数据库：standard_db  
 关联表：di_store_sku_drink_label、
 di_sku、di_store_classify_dedupe、
-di_store_dedupe_labeling
-其中di_store_sku_drink_label表需要通过di_store_sku和di_store_brand表维护
+di_store_dedupe_labeling  
+其中di_store_sku_drink_label表需要通过di_store_sku和di_store_brand表维护(人工打标)
 
 # 预训练
-## 原型网络
-prototypical.py 原型网络训练模型
-prototypical_predict.py 对待测数据进行预测
-## textCNN
+```
+# 统一输入输出的标准格式
+# 训练集输入
+columns = ['id', 'name', 'storetype', 'plant_clean', 'fruit_vegetable_clean', 'protein_clean', 'flavored_clean',
+           'tea_clean', 'carbonated_clean', 'coffee_clean', 'water_clean', 'special_uses_clean']
+# 预测集输入
+columns = ['id', 'name', 'storetype']
+# 预测集输出
+columns = ['id', 'name', 'storetype', '植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风味饮料', '茶（类）饮料',
+           '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
+```
+## 1.原型网络
+```
+/home/DI/zhouzx/code/sku_drink_label/prototypical_network/prototypical.py 原型网络训练模型  
+/home/DI/zhouzx/code/sku_drink_label/prototypical_network/prototypical_predict.py 对待测数据进行预测
+训练集测试集：
+验证集：
+预测集：/home/DI/zhouzx/code/sku_drink_label/datasets/di_sku_log_drink_labeling_zzx.csv
+```
+
+## 2.匹配网络
 ...
-## PU-learning
+## 3.孪生网络
+```
+xx
+训练集测试集：
+验证集：
+预测集：
+```
+## 4.PU-learning
 ...
 # 集成
-voting.py
- 
+1. python脚本
+```
+/home/DI/zhouzx/code/sku_drink_label/voting.py：投票法  
+输出：/home/DI/zhouzx/code/sku_drink_label/datasets/di_store_drink_label_predict.csv
+```
+
 # 数据入库
 1、海豚脚本
-di_store_drink_label_predict.py
+/home/DI/zhouzx/code/sku_drink_label/di_store_drink_label_predict.py
 2、clickhouse
-di_store_drink_label_predict_CK.py
-```
+/home/DI/zhouzx/code/sku_drink_label/di_store_drink_label_predict_CK.py
+```clickhouse
 -- clickhouse 创建表 删除表
 	-- 分布式表
 	CREATE TABLE di_store_drink_label_predict ON CLUSTER xw_clickhouse

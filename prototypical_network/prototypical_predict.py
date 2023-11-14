@@ -18,7 +18,7 @@ from models.proto_model import ProtoTypicalNet
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 pretrian_bert_url = "IDEA-CCNL/Erlangshen-DeBERTa-v2-97M-Chinese"
-labeled_di_sku_path = "/home/DI/zhouzx/code/workbranch/di_sku_log/data/di_sku_log_drink_labeling_zzx.csv"
+prefix_path = "/home/DI/zhouzx/code/sku_drink_label"
 batch_size = 512
 
 
@@ -26,13 +26,12 @@ def get_labeled_dataloader(df, bert_tokenizer):
     # 创建输入数据的空列表
     input_ids = []
     attention_masks = []
-    label2id_list = []
     # 遍历数据集的每一行
     for index, row in df.iterrows():
         # 处理特征
         encoded_dict = bert_tokenizer.encode_plus(
             row['name'],
-            row['storeType'],
+            row['storetype'],
             add_special_tokens=True,
             max_length=14,
             padding='max_length',
@@ -63,12 +62,14 @@ def predicting(dataset, model):
 
 
 def proto_bert_predict():
-    features = ['id', 'name', 'storeType']
+    columns = ['id', 'name', 'storetype']
     labels = ['植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风味饮料', '茶（类）饮料',
               '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
-    columns = ['drink_label', 'labels_token']
-    labeled_df = pd.read_csv(labeled_di_sku_path, usecols=features + columns)
-    print('labeled_df', labeled_df.shape[0])
+    labeled_df = pd.read_csv(prefix_path + "/datasets/di_sku_log_drink_labeling_zzx.csv", usecols=columns)
+    print('清洗前labeled_df数据量：', labeled_df.shape[0])
+    labeled_df = labeled_df[labeled_df['name'].notnull() & (labeled_df['name'] != '')]
+    labeled_df = labeled_df[labeled_df['storetype'].notnull() & (labeled_df['storetype'] != '')]
+    print('清洗后labeled_df数据量：', labeled_df.shape[0])
 
     # 加载模型做预测
     tokenizer = AutoTokenizer.from_pretrained(pretrian_bert_url)
@@ -80,22 +81,22 @@ def proto_bert_predict():
         hidden_dim=128,
         num_class=len(labels)
     ).to(device)
-    proto_model.load_state_dict(torch.load('./models/proto_model.pth'))
+    proto_model.load_state_dict(torch.load(prefix_path + '/models/proto_model.pth'))
 
     labeled_dataset = get_labeled_dataloader(labeled_df, tokenizer)
     print("==========开始做预测=========", time.strftime('%H:%M:%S', time.localtime(time.time())))
     output_result, lable_result = predicting(labeled_dataset, proto_model)
 
     print("========预测完成，生成df对象=========", time.strftime('%H:%M:%S', time.localtime(time.time())))
-    drink_df = pd.DataFrame(output_result, columns=['pred_' + label for label in labels])
-    source_df = labeled_df[features + columns].reset_index(drop=True)
+    drink_df = pd.DataFrame(output_result, columns=[label for label in labels])
+    source_df = labeled_df[columns].reset_index(drop=True)
     predict_result = pd.concat([source_df, drink_df], axis=1)
-    predict_result.to_csv('./data/di_sku_proto_predict_result2.csv')
+    predict_result.to_csv(predict_result + '/datasets/di_sku_proto_predict_result.csv')
     print("========保存到csv文件=========", time.strftime('%H:%M:%S', time.localtime(time.time())))
 
 
 def analysis():
-    df = pd.read_csv("./data/di_sku_proto_predict_result.csv")
+    df = pd.read_csv(prefix_path + "/datasets/di_sku_proto_predict_result.csv")
     print(df.shape[0])
     print(df.head())
     have_label_df = df[df['drink_label'].apply(lambda x: isinstance(x, list) and len(x) > 0)]
@@ -105,14 +106,15 @@ def analysis():
     labels = ['植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风味饮料', '茶（类）饮料',
               '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
     for label in labels:
+        p_label = 'p_' + label
         # 计算准确率
-        accuracy = accuracy_score(df[label], df['pred_' + label])
+        accuracy = accuracy_score(df[label], df[p_label])
         # 计算查准率
-        precision = precision_score(df[label], df['pred_' + label])
+        precision = precision_score(df[label], df[p_label])
         # 计算召回率
-        recall = recall_score(df[label], df['pred_' + label])
+        recall = recall_score(df[label], df[p_label])
         # 计算 F1 分数
-        f1 = f1_score(df[label], df['pred_' + label])
+        f1 = f1_score(df[label], df[p_label])
         print('accuracy: {}'.format(accuracy))
         print('precision: {}'.format(precision))
         print('recall: {}'.format(recall))
@@ -127,7 +129,7 @@ if __name__ == '__main__':
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_colwidth', None)
-    df = pd.read_csv("./data/di_sku_proto_predict_result2.csv")
+    df = pd.read_csv(prefix_path + "/datasets/di_sku_proto_predict_result2.csv")
     print(df.shape[0])
     print(df.head())
 
