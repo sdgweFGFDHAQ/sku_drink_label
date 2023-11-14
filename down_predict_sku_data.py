@@ -75,7 +75,8 @@ def sku_data_pretreatment():
     csv_data.drop_duplicates(keep='first', inplace=True)
     print("dedupe 原始sku去重：", csv_data.shape[0])
     # 合并原始类别和预测类别
-    csv_data['storetype'] = csv_data['category1_new'].fillna(csv_data['predict_category'])
+    # csv_data['storetype'] = csv_data['category1_new'].fillna(csv_data['predict_category'])
+    csv_data['storetype'] = csv_data['category1_new']
 
     csv_result = csv_data[keep_columns + merge_column]
     csv_result.to_csv(save_path, index=False, encoding='utf-8')

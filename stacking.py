@@ -17,9 +17,9 @@ csv_columns = ['植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风�
 
 # 定义元模型的类
 class MetaModel(nn.Module):
-    def __init__(self):
+    def __init__(self, n):
         super(MetaModel, self).__init__()
-        self.meta = nn.Sequential(nn.Linear(3, 1),
+        self.meta = nn.Sequential(nn.Linear(n, 1),
                                   nn.Sigmoid())
 
     def forward(self, x):
