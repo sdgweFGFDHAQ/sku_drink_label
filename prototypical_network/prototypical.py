@@ -19,10 +19,15 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 pretrian_bert_url = "IDEA-CCNL/Erlangshen-DeBERTa-v2-97M-Chinese"
 pretrian_bert_url0 = "IDEA-CCNL/Erlangshen-DeBERTa-v2-320M-Chinese"
+# 旧版本
 labeled_update_path = '/datasets/is_7t1.csv'
 labeled_di_sku_path = '/datasets/di_sku_log_drink_labels.csv'
 labeled_di_sku_path2 = '/datasets/di_sku_log_chain_drink_labels_clean_dgl.csv'
+# 当前版本
 prefix_path = "/home/DI/zhouzx/code/sku_drink_label"
+train_path = '/datasets/fs_sku_drink_data_train.csv'
+valid_path = '/datasets/fs_sku_drink_data_valid.csv'
+test_path = '/datasets/fs_sku_drink_data_test.csv'
 
 token_max_length = 12
 batch_size = 16
@@ -190,14 +195,27 @@ def predicting(dataset, model):
     model.eval()
     with torch.no_grad():
         output_list = []
+        epoch_acc, epoch_prec, epoch_recall, epoch_f1s = 0.0, 0.0, 0.0, 0.0
         for i, support_input in enumerate(dataloader):
             # 1. 放到GPU上
             feature = support_input[0].to(device, dtype=torch.long)
+            label = support_input[1].to(device, dtype=torch.long)
             # 2. 计算输出
             output = model(feature)
+            # 3. 计算评估指标
+            accu, precision, recall, f1s = threshold_EVA(output, label)
+            epoch_acc += accu.item()
+            epoch_prec += precision.item()
+            epoch_recall += recall.item()
+            epoch_f1s += f1s.item()
+            # 4. 输出预测值
             output_list.extend([tensor.cpu().numpy() for tensor in output])
+
+        num_batches = len(dataloader)
+        acc_value, prec_value = epoch_acc / num_batches, epoch_prec / num_batches
+        rec_value, f1_value = epoch_recall / num_batches, epoch_f1s / num_batches
         label_list = [[np.where(arr > 0.5, 1, 0) for arr in row] for row in output_list]
-    return output_list, label_list
+    return output_list, label_list, acc_value, prec_value, rec_value, f1_value
 
 
 # 训练 测试 分析
@@ -235,25 +253,28 @@ def run_proto_bert():
     columns.extend(features)
     columns.extend(labels)
 
-    labeled_df = pd.read_csv(prefix_path + labeled_di_sku_path2, usecols=columns)
-    labeled_df = labeled_df[labeled_df['name'].notnull() & (labeled_df['name'] != '')]
-    labeled_df = labeled_df[labeled_df['storetype'].notnull() & (labeled_df['storetype'] != '')]
-
-    # 划分训练集、测试集
-    sq_set, test_set = train_test_split(labeled_df, test_size=0.2)
+    # 读取并清洗训练集
+    train_df = pd.read_csv(prefix_path + train_path, usecols=columns)
+    train_df = train_df[train_df['name'].notnull() & (train_df['name'] != '')]
+    train_df = train_df[train_df['storetype'].notnull() & (train_df['storetype'] != '')]
+    print('sq_set len:{}'.format(train_df.shape[0]))
+    # 读取并清洗训练集
+    valid_df = pd.read_csv(prefix_path + valid_path, usecols=columns)
+    valid_df = valid_df[valid_df['name'].notnull() & (valid_df['name'] != '')]
+    valid_df = valid_df[valid_df['storetype'].notnull() & (valid_df['storetype'] != '')]
+    print('test_set len:{}'.format(valid_df.shape[0]))
+    # SQ方法划分训练集、验证集
     # sq_set = get_Support_Query(labeled_df, labels, k=2000)
-    print('sq_set len:{}'.format(sq_set.shape[0]))
     # test_set = labeled_df.drop(sq_set.index)
-    print('test_set len:{}'.format(test_set.shape[0]))
 
     # dataloader
     tokenizer = AutoTokenizer.from_pretrained(pretrian_bert_url)
-    support_dataset = get_labeled_dataloader(sq_set, tokenizer, labels)
-    test_dataset = get_labeled_dataloader(test_set, tokenizer, labels)
+    support_dataset = get_labeled_dataloader(train_df, tokenizer, labels)
+    test_dataset = get_labeled_dataloader(valid_df, tokenizer, labels)
 
     # 计算标签为1的占比,作为阈值
-    num_ones = torch.tensor((sq_set[labels] == 1).sum(axis=0))
-    ratio = (num_ones / sq_set.shape[0]).to(device)
+    num_ones = torch.tensor((train_df[labels] == 1).sum(axis=0))
+    ratio = (num_ones / valid_df.shape[0]).to(device)
 
     bert_layer = AutoModel.from_pretrained(pretrian_bert_url)
     proto_model = ProtoTypicalNet(
@@ -263,9 +284,10 @@ def run_proto_bert():
         num_class=len(labels)
     ).to(device)
 
+    print("==============模型训练==================")
     # 训练 测试 分析
     train_and_test(support_dataset, test_dataset, proto_model, ratio, prefix_path + '/models/proto_model.pth')
-    print("=================================")
+    print("==============训练完成==================")
 
 
 def predict():
@@ -278,14 +300,13 @@ def predict():
     columns.extend(features)
     columns.extend(labels)
 
-    labeled_df = pd.read_csv(prefix_path + labeled_di_sku_path2, usecols=columns)
-    labeled_df = labeled_df[labeled_df['name'].notnull() & (labeled_df['name'] != '')]
-    labeled_df = labeled_df[labeled_df['storetype'].notnull() & (labeled_df['storetype'] != '')]
+    test_df = pd.read_csv(prefix_path + test_path, usecols=columns)
+    test_df = test_df[test_df['name'].notnull() & (test_df['name'] != '')]
+    test_df = test_df[test_df['storetype'].notnull() & (test_df['storetype'] != '')]
 
-    sq_set, test_set = train_test_split(labeled_df, test_size=0.2)
     # 加载模型做预测
     tokenizer = AutoTokenizer.from_pretrained(pretrian_bert_url)
-    test_dataset = get_labeled_dataloader(test_set, tokenizer, labels)
+    test_dataset = get_labeled_dataloader(test_df, tokenizer, labels)
 
     bert_layer = AutoModel.from_pretrained(pretrian_bert_url)
     # 加载模型做预测
@@ -297,22 +318,28 @@ def predict():
     ).to(device)
     proto_model.load_state_dict(torch.load(prefix_path + '/models/proto_model.pth'))
 
-    output_result, lable_result = predicting(test_dataset, proto_model)
-    drink_df = pd.DataFrame(lable_result, columns=labels)
-    drink_values = pd.DataFrame(output_result, columns=labels)
-    source_df = test_set[['name', 'storetype']].reset_index(drop=True)
+    print("==============开始预测==============")
+    output_result, lable_result, test_acc, test_prec, test_rec, test_f1 \
+        = predicting(test_dataset, proto_model)
+    print("测试集 accuracy: {:.2%},precision:{:.4f} recall: {:.2%},F1:{:.4f}"
+          .format(test_acc, test_prec, test_rec, test_f1))
+    print("=============返回预测结果============")
+    drink_values = pd.DataFrame(output_result, columns=labels)  # 模型输出值
+    drink_df = pd.DataFrame(lable_result, columns=labels)  # 数值转标签
+    source_df = test_df[['id', 'name', 'storetype']].reset_index(drop=True)
 
-    predict_result = pd.concat([source_df, drink_values], axis=1)
+    predict_result = pd.concat([source_df, drink_df], axis=1)
 
     pd.options.display.float_format = '{:.6f}'.format
-    predict_result.to_csv(prefix_path + '/datasets/sku_predict_result.csv', index=False)
+    predict_result.to_csv(prefix_path + '/datasets/test_predict_result.csv', index=False)
     print("预测完成")
 
 
 if __name__ == '__main__':
     # 训练模型
     run_proto_bert()
-    # predict()
+    # 测试集评估泛化能力
+    predict()
 
 # nohup python -u prototypical.py> log.log 2>&1 &
 # tensorboard --logdir=E:\pyProjects\pycharm_project\workplace\fewsamples\logs\v1 --port 8123

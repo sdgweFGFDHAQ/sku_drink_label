@@ -95,32 +95,6 @@ def proto_bert_predict():
     print("========保存到csv文件=========", time.strftime('%H:%M:%S', time.localtime(time.time())))
 
 
-def analysis():
-    df = pd.read_csv(prefix_path + "/datasets/di_sku_proto_predict_result.csv")
-    print(df.shape[0])
-    print(df.head())
-    have_label_df = df[df['drink_label'].apply(lambda x: isinstance(x, list) and len(x) > 0)]
-    print('have_label_df number: ', have_label_df.shape[0])
-
-    # 计算准确率
-    labels = ['植物饮料', '果蔬汁类及其饮料', '蛋白饮料', '风味饮料', '茶（类）饮料',
-              '碳酸饮料', '咖啡（类）饮料', '包装饮用水', '特殊用途饮料']
-    for label in labels:
-        p_label = 'p_' + label
-        # 计算准确率
-        accuracy = accuracy_score(df[label], df[p_label])
-        # 计算查准率
-        precision = precision_score(df[label], df[p_label])
-        # 计算召回率
-        recall = recall_score(df[label], df[p_label])
-        # 计算 F1 分数
-        f1 = f1_score(df[label], df[p_label])
-        print('accuracy: {}'.format(accuracy))
-        print('precision: {}'.format(precision))
-        print('recall: {}'.format(recall))
-        print('f1: {}'.format(f1))
-
-
 if __name__ == '__main__':
     # 预测
     proto_bert_predict()
@@ -133,6 +107,4 @@ if __name__ == '__main__':
     print(df.shape[0])
     print(df.head())
 
-    # 效果验证
-    # analysis()
 # nohup python -u prototypical.py > /dev/null 2>&1 &

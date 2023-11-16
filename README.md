@@ -38,11 +38,13 @@ columns = ['id', 'name', 'storetype', '植物饮料', '果蔬汁类及其饮料'
 ```
 ## 1.原型网络
 ```
-/home/DI/zhouzx/code/sku_drink_label/prototypical_network/prototypical.py 原型网络训练模型  
-/home/DI/zhouzx/code/sku_drink_label/prototypical_network/prototypical_predict.py 对待测数据进行预测
-训练集测试集：
-验证集：
-预测集：/home/DI/zhouzx/code/sku_drink_label/datasets/di_sku_log_drink_labeling_zzx.csv
+文件保存路径前缀：/home/DI/zhouzx/code/sku_drink_label
+/prototypical_network/prototypical.py 原型网络训练模型  
+/prototypical_network/prototypical_predict.py 对待测数据进行预测
+训练集:/datasets/fs_sku_drink_data_train.csv
+验证集：/datasets/fs_sku_drink_data_valid.csv
+测试集：/datasets/fs_sku_drink_data_test.csv
+预测集：/datasets/di_sku_log_drink_labeling_zzx.csv
 ```
 
 ## 2.匹配网络
@@ -50,8 +52,9 @@ columns = ['id', 'name', 'storetype', '植物饮料', '果蔬汁类及其饮料'
 ## 3.孪生网络
 ```
 xx
-训练集测试集：
-验证集：
+训练集:/datasets/fs_sku_drink_data_train.csv
+验证集：/datasets/fs_sku_drink_data_valid.csv
+测试集：/datasets/fs_sku_drink_data_test.csv
 预测集：
 ```
 ## 4.PU-learning

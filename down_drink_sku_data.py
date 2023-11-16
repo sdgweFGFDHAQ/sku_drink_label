@@ -93,10 +93,27 @@ def sku_data_pretreatment():
     print("饮料标签列中值为1的数量", column_counts)
 
 
+def split_ttv():
+    file_path = prefix_path + "/datasets"
+    data_df = pd.read_excel(file_path + "/fs_drink_sku_data.xlsx")
+    vt_df = data_df.sample(frac=0.2, random_state=2023, axis=0)
+    # 训练集
+    train_df = data_df[~data_df.index.isin(vt_df.index)]
+    train_df.to_csv(file_path + "/fs_sku_drink_data_train.csv", index=True)
+    # 验证集
+    validation_df = vt_df.sample(frac=0.5, random_state=2023, axis=0)
+    validation_df.to_csv(file_path + "/fs_sku_drink_data_valid.csv", index=True)
+    # 测试集
+    test_df = vt_df[~vt_df.index.isin(validation_df.index)]
+    test_df.to_csv(file_path + "/fs_sku_drink_data_test.csv", index=True)
+
+
 if __name__ == '__main__':
     # 下载有饮料标签的数据集-现通过人工清洗的方式获得模型训练集、测试集
     count_matching_number()
     # 处理训练集、测试集数据格式
     sku_data_pretreatment()
+    # 把人工清洗的小样本数据集划分为训练集、验证集、测试集给集成学习使用
+    # split_ttv()
 
 # nohup python -u down_drink_sku_data.py> down_di_sku_data.log 2>&1 &
